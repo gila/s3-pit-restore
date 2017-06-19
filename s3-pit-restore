@@ -78,7 +78,7 @@ class TestS3PitRestore(unittest.TestCase):
         contents_before = [ str(uuid.uuid4()) for n in range(2048) ]
         contents_after =  [ str(uuid.uuid4()) for n in range(2048) ]
         path = os.path.join(os.path.abspath(args.dest), "test-s3-pit-restore")
-        s3 = boto3.resource('s3')
+        s3 = boto3.resource('s3', endpoint_url=args.endpoint_url)
         bucket_versioning = s3.BucketVersioning(args.bucket)
         bucket_versioning.load()
 
@@ -127,7 +127,7 @@ def handled_by_glacier(obj):
         print_obj(obj)
         return true
     elif obj["StorageClass"] == "GLACIER" and args.enable_glacier:
-        s3 = boto3.resource('s3')
+        s3 = boto3.resource('s3', endpoint_url=args.endpoint_url)
         s3_obj = s3.Object(args.bucket, obj["Key"])
         if s3_obj.restore is None:
             print_obj(obj, optional_message='requesting')
@@ -175,7 +175,9 @@ def download_file(obj):
 def do_restore():
     pit_start_date = (parse(args.from_timestamp) if args.from_timestamp else datetime.fromtimestamp(0, timezone.utc))
     pit_end_date = (parse(args.timestamp) if args.timestamp else datetime.now(timezone.utc))
-    client = boto3.client('s3')
+    if (args.endpoint_url):
+        print ("Using non default endpoint: ", args.endpoint_url)
+    client = boto3.client('s3', endpoint_url=args.endpoint_url)
     global transfer
     transfer = boto3.s3.transfer.S3Transfer(client)
     dest = args.dest
@@ -261,6 +263,7 @@ if __name__=='__main__':
     parser.add_argument('--debug', help='enable debug output', action='store_true')
     parser.add_argument('--test', help='s3 pit restore testing', action='store_true')
     parser.add_argument('--max-workers', help='max number of concurrent download requests', default=10, type=int)
+    parser.add_argument('--endpoint-url', help='Override the endpoint URL which defaults to AWS', default=None)
     args = parser.parse_args()
 
     if not args.test:
